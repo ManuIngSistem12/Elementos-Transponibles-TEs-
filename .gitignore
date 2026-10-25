@@ -1,0 +1,45 @@
+# Datos originales (se descargan de Zenodo y se guardan en data/)
+# bibliotecas/*.fasta y backup/ SI se suben
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Secretos y configuracion local
+.env
+*.env
+secrets.*
+
+# MongoDB local
+mongo-data/
+*.wt
+*.lock
+
+# LaTeX (se suben .tex, .bib y el PDF final)
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

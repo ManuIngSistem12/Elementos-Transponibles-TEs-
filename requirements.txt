@@ -1,0 +1,16 @@
+# Base de datos
+pymongo>=4.6
+ 
+# Procesamiento de datos
+biopython>=1.83
+pandas>=2.2
+numpy>=1.26
+tqdm>=4.66
+ 
+# Visualizacion
+matplotlib>=3.8
+seaborn>=0.13
+ 
+# Notebooks
+jupyterlab>=4.0
+ipykernel>=6.29
