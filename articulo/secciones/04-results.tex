@@ -92,10 +92,16 @@ pertenecen a especies sin \textit{phylum} registrado.
 \subsection*{Longitud de los TEs por orden (Figura 2)}
 
 \textbf{Resultado.} En toda la base, la longitud de los TEs va de 81 a
-19\,926\,pb, con una mediana de 4\,259\,pb y un promedio de 4\,017\,pb
-(Figura~\ref{fig:longitud}).
-% PENDIENTE: completar con la tabla resumen2 del notebook 03_figuras_a
-% (mediana e IQR de cada orden: cuáles son los más cortos y los más largos).
+19\,926\,pb, con una mediana de 4\,259\,pb (Figura~\ref{fig:longitud}).
+Los órdenes se separan en dos grupos. Los más cortos son SINE (mediana
+254\,pb), CRYPTON (282\,pb) y MITE (346\,pb), cuyas cajas quedan por
+debajo de 500\,pb. Los más largos son MAVERICK (6\,758\,pb), LTR
+(5\,347\,pb; rango intercuartílico de 4\,314 a 6\,842\,pb) y DIRS
+(5\,143\,pb). Entre ambos extremos están HELITRON (3\,371\,pb), LINE
+(3\,279\,pb), PLE (2\,208\,pb), TIR (1\,341\,pb) y RETROPOSON (1\,159\,pb).
+Varios órdenes muestran límites exactos: SINE y MITE no superan los
+500\,pb, LINE va exactamente de 500 a 6\,000\,pb y TIR no llega a
+10\,000\,pb, mientras que varios órdenes tienen un mínimo de 100\,pb.
 
 \begin{figure}[htbp]
   \centering
@@ -106,7 +112,23 @@ pertenecen a especies sin \textit{phylum} registrado.
   \label{fig:longitud}
 \end{figure}
 
-\textbf{Interpretación.} % PENDIENTE: se escribe con los valores reales.
+\textbf{Interpretación.} La separación entre órdenes cortos y largos es
+coherente con su estructura: los SINE y los MITE son elementos no
+autónomos que no codifican las proteínas para movilizarse y por eso son
+cortos, mientras que los LTR, DIRS y MAVERICK contienen genes completos y
+superan con frecuencia los 5\,kb. Los cortes exactos (500, 6\,000 y
+10\,000\,pb) no son biológicos: corresponden a los umbrales de longitud
+por superfamilia que PanTEon aplicó al construir la base para conservar
+solo secuencias con la estructura esperada~\cite{orozcoarias2026panteon}.
+Por lo tanto, la Figura~\ref{fig:longitud} describe las secuencias
+retenidas por esos filtros y no la longitud natural de cada orden. Un
+caso que merece cautela es CRYPTON, cuya mediana (282\,pb) es mucho menor
+de lo esperado para elementos que codifican una recombinasa, lo que
+sugiere que muchas de sus 112 secuencias son fragmentos. Finalmente, la
+amplia superposición entre órdenes como HELITRON, LINE y PLE muestra que
+la longitud por sí sola no basta para clasificar un TE. Para la base de
+datos, guardar \texttt{longitud} precalculada permite responder estas
+consultas con una proyección de dos campos, sin leer las secuencias.
 
 % ---------------------------------------------------------------------
 \subsection*{Especies con más y menos TEs (Q4)}
