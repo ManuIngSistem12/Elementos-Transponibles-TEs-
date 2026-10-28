@@ -1,0 +1,119 @@
+% =====================================================================
+% RESULTADOS – Consultas Q1 a Q4 y pregunta propia 1
+% Números obtenidos de la base completa: 239.946 secuencias, 2.790 especies.
+% =====================================================================
+
+\subsection*{Composición de la base por clasificación (Q1)}
+
+\textbf{Pregunta.} ¿Cuántos TEs hay por clase, por orden y por superfamilia?
+
+\textbf{Resultado.} La Clase~I (retrotransposones) reúne 194\,774 secuencias
+(81,2\,\%) y la Clase~II (transposones de ADN), 45\,172 (18,8\,\%). De los
+11 órdenes, tres concentran el 93,4\,\% de la base: LTR (119\,368; 49,7\,\%),
+LINE (68\,382; 28,5\,\%) y TIR (36\,471; 15,2\,\%). En el otro extremo,
+PLE, RETROPOSON, CRYPTON y MAVERICK suman menos de 630 secuencias en
+conjunto. Las 65 superfamilias tienen una distribución igualmente
+desbalanceada: \textit{Copia} (21,2\,\%) y \textit{Gypsy} (18,3\,\%) cubren
+casi el 40\,\% de la base, mientras que 16 superfamilias tienen menos de
+100 secuencias.
+
+\textbf{Interpretación.} La base está fuertemente sesgada hacia los
+retrotransposones LTR. Para el diseño de la base de datos esto implica que
+un índice sobre \texttt{te\_orden} es poco selectivo para los órdenes
+mayoritarios: una consulta por LTR devuelve la mitad de la colección. Para
+el uso de la base como insumo de clasificadores~\cite{orozcoarias2026panteon},
+el desbalance indica que las clases minoritarias tendrán pocos ejemplos.
+Además, 11 superfamilias tienen el mismo nombre que su orden (por ejemplo,
+\texttt{LINE/LINE} o \texttt{TIR/TIR}; 21\,544 secuencias en total), lo que
+en la práctica indica que la superfamilia no se determinó; estas secuencias
+se conservaron, pero deben tratarse con cuidado en análisis por superfamilia.
+
+% ---------------------------------------------------------------------
+\subsection*{TEs por especie y clasificación (Q2)}
+
+\textbf{Pregunta.} ¿Cuántos TEs tiene cada especie, desglosados por clase,
+orden y superfamilia?
+
+\textbf{Resultado.} La consulta produce 18\,513 combinaciones
+especie--clasificación. La diversidad de superfamilias por especie es muy
+variable: la mediana es de 5 superfamilias, pero \textit{Danio rerio}
+alcanza 36 y 493 especies tienen una sola. Además, 652 especies tienen TEs
+de un único orden. Por ejemplo, en \textit{Malus domestica}, la especie con
+más TEs, predominan \textit{Copia} (671) y \textit{Gypsy} (398).
+
+\textbf{Interpretación.} La mayoría de las especies tiene bibliotecas
+pequeñas y poco diversas, sobre todo en Fungi, y unas pocas concentran
+gran parte de las secuencias. Como la especie se guarda por referencia
+(\texttt{especie\_id}), esta consulta exige un \texttt{\$lookup}; para
+reducir su costo se agrupa primero en \texttt{secuencias} y luego se cruza
+con \texttt{especies}, de modo que el \texttt{\$lookup} se ejecuta sobre
+18\,513 grupos y no sobre 239\,946 documentos.
+
+% ---------------------------------------------------------------------
+\subsection*{Cambios entre reinos y phyla (Q3)}
+
+\textbf{Pregunta.} ¿Cómo cambia la cantidad de TEs por clase y orden entre
+reinos? ¿Y entre phyla?
+
+\textbf{Resultado.} La composición difiere claramente entre reinos
+(Figura~\ref{fig:composicion}). En Plantae, el 72,3\,\% de los TEs son LTR y
+la Clase~I alcanza el 87,7\,\%. En Animalia predominan los LINE (44,0\,\%),
+seguidos de LTR (25,1\,\%) y TIR (21,4\,\%). Fungi es intermedio, con LTR
+(40,1\,\%) y LINE (31,0\,\%), y es el reino con mayor proporción de
+HELITRON (8,6\,\%, frente a 1,2--1,9\,\% en los otros). RETROPOSON y CRYPTON
+solo aparecen en Animalia. Por phyla, Angiosperma replica el patrón de
+Plantae (73\,\% LTR), mientras que dentro de Animalia hay diferencias
+marcadas: Arthropoda (61\,\%) y Mollusca (57\,\%) están dominados por LINE,
+y Chordata está más repartido (LINE 35\,\%, LTR 29\,\%, TIR 25\,\%). En
+Fungi, Basidiomycota y Mucoromycota tienen 13\,\% de HELITRON.
+
+\textbf{Interpretación.} El predominio de LTR en plantas y de LINE en
+animales es coherente con lo descrito para estos grupos. Sin embargo, estos
+porcentajes describen las bibliotecas de PanTEon (familias de TEs
+representadas en la base) y no la fracción del genoma que ocupa cada orden,
+y el número de especies por reino es muy desigual (Fungi: 1\,559 especies
+con una mediana de 5 TEs; Plantae: 451 especies con una mediana de 245).
+Por eso se usan porcentajes dentro de cada reino en lugar de conteos
+absolutos. La consulta depende de la taxonomía del CSV: cuatro secuencias
+pertenecen a especies sin \textit{phylum} registrado.
+
+% ---------------------------------------------------------------------
+\subsection*{Especies con más y menos TEs (Q4)}
+
+\textbf{Pregunta.} ¿Cuáles son las 10 especies con más TEs y las 10 con menos?
+
+\textbf{Resultado.} Encabezan la lista \textit{Malus domestica} (1\,627),
+\textit{Danio rerio} (1\,352), \textit{Callithrix jacchus} (1\,294) y
+Homininae (1\,173), seguidas de \textit{Nicotiana attenuata},
+\textit{Colobus angolensis}, \textit{Chlorocebus sabaeus},
+\textit{Geotrypetes seraphini}, \textit{Sitophilus oryzae} y
+\textit{Oryza sativa} (1\,090). En el extremo opuesto, el mínimo es un
+solo TE y lo comparten 326 especies.
+
+\textbf{Interpretación.} Las 10 especies con menos TEs no están bien
+definidas: con 326 empates en el mínimo, cualquier lista de diez es
+arbitraria y depende del criterio de desempate (aquí, orden alfabético).
+Es más informativo reportar cuántas especies tienen un solo TE. Por otro
+lado, el cuarto lugar del top lo ocupa Homininae, que no es una especie
+sino una subfamilia de primates; esto motivó la pregunta propia.
+
+% ---------------------------------------------------------------------
+\subsection*{Pregunta propia 1: ``especies'' que son taxones superiores}
+
+\textbf{Pregunta.} ¿Cuántas entradas del campo especie corresponden en
+realidad a taxones superiores, cuántos TEs aportan y de qué órdenes son?
+
+\textbf{Resultado.} Se identificaron 45 entradas cuyo nombre tiene una
+sola palabra (por ejemplo, Homininae, Myomorpha, Monotremata o Mammalia),
+todas del reino Animalia. Aportan 3\,806 TEs (1,59\,\% de la base);
+Homininae (1\,173) y Myomorpha (682) concentran casi la mitad. Por orden
+predominan TIR (1\,920) y LTR (894).
+
+\textbf{Interpretación.} Estas bibliotecas provienen de Dfam, donde las
+familias se asignan a un nodo de la taxonomía (un clado) y no
+necesariamente a una especie~\cite{storer2021dfam}. Por ello, el campo
+\texttt{especie} no siempre contiene una especie, lo que afecta a las
+consultas por especie (Q2 y Q4) y a la herencia de la taxonomía: estas
+entradas no tienen niveles inferiores (por ejemplo, familia) bien definidos.
+Se decidió conservarlas, porque eliminarlas haría perder 3\,806 secuencias
+válidas, y documentarlas como una limitación del modelo.
