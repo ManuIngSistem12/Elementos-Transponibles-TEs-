@@ -1,4 +1,4 @@
-"""Pipeline de lectura, validación y atributos del FASTA de PanTEon (persona A).
+"""Pipeline de lectura, validación y atributos del FASTA de PanTEon.
 
 Uso típico:
     from src.fasta import procesar_fasta
@@ -6,7 +6,7 @@ Uso típico:
         ...                       # cada df es un lote listo para B (cruce) y C (k-mers)
 
 Contrato de salida (columnas de cada DataFrame):
-    id_original, te_class, te_order, te_superfamily, especie,
+    pdb_id, te_clase, te_orden, te_superfamilia, especie,
     secuencia, longitud, porcentaje_gc, porcentaje_n
 
 Reglas de limpieza (documentadas en exploracion/hallazgos_fasta.md):
@@ -27,7 +27,7 @@ from src.normalizacion import normalizar_especie
 ALFABETO_VALIDO = set("ACGTN")
 
 COLUMNAS = [
-    "id_original", "te_class", "te_order", "te_superfamily", "especie",
+    "pdb_id", "te_clase", "te_orden", "te_superfamilia", "especie",
     "secuencia", "longitud", "porcentaje_gc", "porcentaje_n",
 ]
 
@@ -88,10 +88,10 @@ def parsear_encabezado(encabezado):
         return None
 
     return {
-        "id_original": id_original,
-        "te_class": niveles[0],
-        "te_order": niveles[1],
-        "te_superfamily": niveles[2],
+        "pdb_id": id_original,
+        "te_clase": niveles[0],
+        "te_orden": niveles[1],
+        "te_superfamilia": niveles[2],
         "especie": especie,
     }
 
@@ -144,7 +144,7 @@ def procesar_fasta(ruta, tam_lote=5000, contadores=None):
     `contadores` (un Counter) se va llenando con:
         leidos, validos, encabezado_invalido, secuencia_vacia,
         caracteres_invalidos
-    Pasalo desde afuera para consultarlo al terminar:
+    Pásalo desde afuera para consultarlo al terminar:
         cont = Counter()
         for df in procesar_fasta(ruta, contadores=cont): ...
         print(cont)
