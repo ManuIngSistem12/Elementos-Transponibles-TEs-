@@ -1,0 +1,135 @@
+
+% --- Párrafo 1: qué son los TEs --------------------------------------
+Los elementos transponibles (TEs, por sus siglas en inglés) son secuencias
+de ADN capaces de moverse o de copiarse dentro del genoma que las
+hospeda~\cite{bourque2018ten}. Constituyen una fracción considerable de
+muchos genomas eucariotas: cerca de la mitad del genoma humano deriva de
+ellos~\cite{lander2001initial} y en el maíz representan alrededor del
+85\,\% de la secuencia~\cite{schnable2009b73}. Lejos de ser ``ADN
+basura'', los TEs participan en la evolución de los genomas, en la
+regulación de la expresión génica y en la generación de variación
+genética sobre la que actúa la selección~\cite{bourque2018ten}.
+% Fuente: Bourque et al. 2018 (definición, papel evolutivo y regulatorio);
+%         Lander et al. 2001 (~45 % del genoma humano);
+%         Schnable et al. 2009 (~85 % del genoma del maíz B73).
+
+% --- Párrafo 2: cómo se clasifican -----------------------------------
+Para estudiarlos, los TEs se organizan en una clasificación jerárquica.
+El sistema propuesto por Wicker et al.~\cite{wicker2007unified} los
+divide en dos clases según su mecanismo de transposición: la Clase~I,
+o retrotransposones, que se movilizan a través de un intermediario de
+ARN, y la Clase~II, o transposones de ADN. Cada clase se subdivide en
+órdenes (por ejemplo, LTR, LINE o TIR) y estos, a su vez, en
+superfamilias (por ejemplo, \textit{Gypsy}, \textit{Copia} o
+\textit{hAT}). Esta jerarquía Clase/Orden/Superfamilia es la que siguen
+las etiquetas de la base de datos utilizada en este
+trabajo~\cite{orozcoarias2026panteon}.
+% Fuente: Wicker et al. 2007 (Clase I/II, orden, superfamilia);
+%         PanTEon (bioRxiv) usa esa jerarquía de 3 niveles.
+
+% --- Párrafo 3: por qué es un reto almacenarlos y analizarlos ---------
+El análisis de los TEs plantea retos tanto biológicos como
+computacionales. Desde el punto de vista biológico, los TEs suelen ser
+específicos de cada especie, divergen con rapidez incluso entre especies
+cercanas y, dentro de una misma familia, sus copias van desde casi
+idénticas hasta muy degradadas; además, su alto número de copias y las
+inserciones anidadas dificultan su detección y anotación~\cite{orozcoarias2026panteon}.
+Desde el punto de vista de los datos, la información sobre TEs es
+voluminosa, heterogénea y poco estructurada: las secuencias se
+distribuyen en archivos FASTA cuyo encabezado mezcla en texto libre el
+identificador, la clasificación y la especie, mientras que la taxonomía
+de cada especie y el origen de cada biblioteca se describen en archivos
+de metadatos aparte~\cite{orozcoarias2026panteon,panteon2026zenodo}.
+A ello se suma la transformación habitual de las secuencias en perfiles
+de \textit{k}-mers, una de las representaciones más usadas para
+entrenar clasificadores de TEs~\cite{orozcoarias2026panteon}: con el
+alfabeto \{A, C, G, T\} existen $4^k$ \textit{k}-mers posibles, de modo
+que el perfil completo para $k=1,\dots,6$ tiene hasta 5\,460 valores por
+secuencia. Para las 239\,946 secuencias de PanTEon v1.6.1 esto supone
+del orden de $1{,}3\times10^{9}$ valores, lo que convierte la forma de
+almacenarlos y consultarlos en una decisión de diseño central.
+% Fuente: PanTEon (bioRxiv) – especificidad, divergencia, copias,
+%         anidamiento, datos categóricos y poco estructurados, k-mers
+%         usados por 5 de 7 herramientas revisadas.
+% Cálculo propio: 4+16+64+256+1024+4096 = 5460;
+%                 239946 × 5460 = 1 310 105 160 ≈ 1,3 × 10^9.
+% Conteo propio: 239 946 secuencias (grep -c "^>" sobre el FASTA).
+
+% --- Párrafo 4: objetivo del trabajo ----------------------------------
+En este trabajo diseñamos, implementamos y evaluamos una base de datos
+documental en MongoDB que integra las secuencias de TEs de PanTEon
+Database v1.6.1~\cite{panteon2026zenodo}, la taxonomía de las especies
+de las que proceden y sus perfiles de \textit{k}-mers ($k=1$ a $6$).
+El procesamiento se realiza con un \textit{pipeline} reproducible en
+Python que lee y valida las secuencias, documenta y resuelve los
+problemas de calidad de las fuentes, cruza ambas fuentes por especie y
+carga los datos de forma masiva. Además, respondemos un conjunto de
+preguntas de investigación mediante consultas y agregaciones, y
+comparamos experimentalmente dos estrategias de almacenamiento de los
+\textit{k}-mers en términos de tiempo de carga, espacio en disco y
+tiempo de consulta.
+
+% =====================================================================
+\subsection*{Trabajo relacionado}
+
+% --- PanTEon -----------------------------------------------------------
+\paragraph{PanTEon.}
+PanTEon~\cite{orozcoarias2026panteon} es un marco de trabajo para
+diseñar y comparar clasificadores de TEs basados en aprendizaje
+profundo. Combina una base de datos de TEs curada automáticamente, que
+abarca los reinos Animalia, Plantae y Fungi, con una plataforma que
+estandariza el entrenamiento, la evaluación y la inferencia de nueve
+métodos de aprendizaje automático. Su versión 1.6.1 reúne 239\,946 TEs
+de 2\,790 especies. Las secuencias proceden de dos orígenes: familias
+de Dfam y bibliotecas generadas \textit{de novo} con
+RepeatModeler2~\cite{flynn2020repeatmodeler2} y curadas
+automáticamente con MCHelper~\cite{orozcoarias2024mchelper}; solo se
+conservaron las secuencias con todos los rasgos estructurales esperados
+para su superfamilia. Cada secuencia se etiqueta con la jerarquía
+Clase/Orden/Superfamilia. Los datos se distribuyen en dos archivos
+planos: un FASTA con las secuencias y un CSV con la taxonomía y el
+origen de cada biblioteca, relacionados únicamente por el nombre de la
+especie~\cite{panteon2026zenodo}. Esta organización es adecuada para
+entrenar modelos, pero no ofrece consultas, índices ni relaciones
+explícitas entre secuencias y taxonomía, y no almacena los perfiles de
+\textit{k}-mers, que cada usuario debe recalcular.
+% Fuente: PanTEon (bioRxiv) – marco, 3 reinos, 9 métodos, 239 946 TEs,
+%         2 790 especies, Dfam + RM2 + MCHelper, filtros estructurales,
+%         jerarquía de 3 niveles.
+% Fuente: Zenodo + nuestra exploración – 2 archivos planos unidos por
+%         el nombre de la especie (CSV: 2 404 especies RM2+MCH y 386 Dfam).
+% La última frase es la brecha que justifica nuestro trabajo.
+
+% --- Dfam --------------------------------------------------------------
+\paragraph{Dfam.}
+Dfam~\cite{storer2021dfam} es un recurso comunitario de familias de TEs
+y otros repetidos. Cada familia se construye a partir de un alineamiento
+semilla (\textit{seed alignment}) de copias representativas, del que se
+derivan un modelo oculto de Markov de perfil (HMM) y una secuencia
+consenso; ambos se usan para anotar genomas. Las familias se dividen en
+curadas, con umbrales de tasa de falsos positivos caracterizados, y no
+curadas, identificadas con el prefijo de acceso ``DR''. Cada familia se
+asocia a la taxonomía del NCBI, y la clasificación se representa como
+un árbol no jerarquizado por rangos cuyos nombres se concatenan desde la
+raíz (por ejemplo, \texttt{Interspersed\_repeat;Unknown}), con
+correspondencias hacia los esquemas de RepeatMasker, Repbase y Wicker
+et al. Dfam se consulta mediante un portal web y una API, y se
+distribuye también en FamDB, un formato basado en HDF5 que permite
+consultas locales. En la versión descrita por Storer et
+al.~\cite{storer2021dfam} contenía 273\,655 familias.
+% Fuente: Storer et al. 2021 (Mobile DNA) – seed alignment, HMM y
+%         consenso, curadas vs. no curadas (prefijo DR), taxonomía NCBI,
+%         árbol de clasificación no jerarquizado, mapeos, API, FamDB
+%         (HDF5), 273 655 familias (versión 3.3).
+
+% --- Contraste y aporte ------------------------------------------------
+\paragraph{Diferencia con este trabajo.}
+Dfam está orientado a la anotación de genomas y representa cada familia
+mediante modelos (HMM y consenso), mientras que PanTEon está orientado
+al entrenamiento de clasificadores y distribuye las secuencias en
+archivos planos. Ninguno de los dos almacena perfiles de \textit{k}-mers
+consultables junto con la secuencia y la taxonomía de la especie. Este
+trabajo aborda esa necesidad mediante un modelo documental que permite
+recorrer la relación secuencia--especie en ambos sentidos, consultar
+los \textit{k}-mers de cualquier secuencia y evaluar el costo de
+distintas formas de almacenarlos.
