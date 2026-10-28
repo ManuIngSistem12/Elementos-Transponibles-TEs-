@@ -1,5 +1,7 @@
 % =====================================================================
-% RESULTADOS – Consultas Q1 a Q4 y pregunta propia 1
+% RESULTADOS – Consultas Q1 a Q4 y pregunta propia 1 (persona A)
+% Archivo sections/04-results.tex. Requiere \usepackage{graphicx} en preamble.tex
+% y los PDF en la carpeta figuras/ del proyecto de Overleaf.
 % Números obtenidos de la base completa: 239.946 secuencias, 2.790 especies.
 % =====================================================================
 
@@ -67,6 +69,15 @@ marcadas: Arthropoda (61\,\%) y Mollusca (57\,\%) están dominados por LINE,
 y Chordata está más repartido (LINE 35\,\%, LTR 29\,\%, TIR 25\,\%). En
 Fungi, Basidiomycota y Mucoromycota tienen 13\,\% de HELITRON.
 
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{figuras/fig1_composicion_reino.pdf}
+  \caption{Composición de TEs por reino: porcentaje de cada orden de TE
+  dentro de Animalia, Plantae y Fungi (\textit{n} = número de TEs del
+  reino). Datos obtenidos mediante agregación en MongoDB.}
+  \label{fig:composicion}
+\end{figure}
+
 \textbf{Interpretación.} El predominio de LTR en plantas y de LINE en
 animales es coherente con lo descrito para estos grupos. Sin embargo, estos
 porcentajes describen las bibliotecas de PanTEon (familias de TEs
@@ -76,6 +87,26 @@ con una mediana de 5 TEs; Plantae: 451 especies con una mediana de 245).
 Por eso se usan porcentajes dentro de cada reino en lugar de conteos
 absolutos. La consulta depende de la taxonomía del CSV: cuatro secuencias
 pertenecen a especies sin \textit{phylum} registrado.
+
+% ---------------------------------------------------------------------
+\subsection*{Longitud de los TEs por orden (Figura 2)}
+
+\textbf{Resultado.} En toda la base, la longitud de los TEs va de 81 a
+19\,926\,pb, con una mediana de 4\,259\,pb y un promedio de 4\,017\,pb
+(Figura~\ref{fig:longitud}).
+% PENDIENTE: completar con la tabla resumen2 del notebook 03_figuras_a
+% (mediana e IQR de cada orden: cuáles son los más cortos y los más largos).
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{figuras/fig2_longitud_orden.pdf}
+  \caption{Distribución de la longitud (pb) de los TEs por orden, ordenados
+  por mediana; \textit{n} indica el número de secuencias de cada orden.
+  Datos obtenidos de la colección \texttt{secuencias} en MongoDB.}
+  \label{fig:longitud}
+\end{figure}
+
+\textbf{Interpretación.} % PENDIENTE: se escribe con los valores reales.
 
 % ---------------------------------------------------------------------
 \subsection*{Especies con más y menos TEs (Q4)}
