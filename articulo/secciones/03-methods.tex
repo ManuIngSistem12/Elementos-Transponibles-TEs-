@@ -1,0 +1,68 @@
+% =====================================================================
+% MÉTODOS – Datos: problemas de calidad del FASTA y cómo se resolvieron
+% Persona A. Va dentro de sections/03-methods.tex (B coordina Métodos).
+% =====================================================================
+
+\subsection*{Calidad del archivo FASTA}
+
+Antes de diseñar el \textit{pipeline} se exploró el archivo
+\texttt{PanTEon\_Database\_v1.6.1.fasta} (947\,MB)~\cite{panteon2026zenodo}
+con herramientas de línea de comandos que lo recorren línea por línea,
+sin cargarlo en memoria. El archivo contiene 239\,946 secuencias de
+2\,790 especies. Su estructura resultó consistente: todos los
+encabezados siguen el patrón
+\begin{center}\texttt{>ID\#CLASE/ORDEN/SUPERFAMILIA @Especie}\end{center}
+\noindent todas las clasificaciones
+tienen tres niveles, no hay identificadores repetidos, no hay secuencias
+vacías (la más corta tiene 81\,pb) y el archivo usa saltos de línea Unix.
+Aun así, se encontraron seis problemas, resumidos en la
+Tabla~\ref{tab:calidad_fasta}.
+
+\begin{table}[htbp]
+\centering
+\caption{Problemas de calidad del archivo FASTA y regla aplicada en el
+\textit{pipeline}.}
+\label{tab:calidad_fasta}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{p{3.7cm}p{2.6cm}p{4.9cm}}
+\hline
+\textbf{Problema} & \textbf{Alcance} & \textbf{Solución} \\
+\hline
+Secuencias en minúsculas & 208\,354 secuencias (86,8\,\%) &
+Conversión a mayúsculas al leer, antes de calcular GC, N y
+\textit{k}-mers. \\
+Superfamilia escrita de dos formas (\texttt{SINE/TRNA} y
+\texttt{SINE/tRNA}) & 56 secuencias &
+Clasificación en mayúsculas; las superfamilias pasan de 66 a 65. \\
+Nombres de especie con punto en las abreviaturas (\texttt{subsp.},
+\texttt{sp.}), que en el CSV aparecen sin punto & 4 especies, 533
+secuencias & Normalización común para FASTA y CSV (eliminar el punto,
+espacios sobrantes y espacios múltiples). Con ella cruzan las 2\,790
+especies. \\
+Bases indeterminadas (N) & 54\,837 secuencias (22,9\,\%); 2\,147\,161 N
+& Se conservan; se calcula \texttt{porcentaje\_n} y el \%GC se calcula
+sobre A, C, G y T. No hay otros códigos IUPAC: el alfabeto válido es
+ACGTN. \\
+Identificadores que no siguen el formato \texttt{PDB\#\#\#\#\#\#\#\#}
+& 31\,600 secuencias (13,2\,\%), de las especies de Dfam &
+El campo \texttt{pdb\_id} guarda el identificador original sin asumir
+un formato; el índice único se mantiene porque no hay repetidos. \\
+Superfamilia igual al orden (\texttt{LINE/LINE}, \texttt{TIR/TIR}, etc.)
+& 11 superfamilias, 21\,544 secuencias &
+Se conservan tal cual y se documentan como superfamilia no determinada.
+\\
+\hline
+\end{tabular}
+\end{table}
+
+Ningún registro se descartó: el \textit{pipeline} cuenta los registros
+leídos, válidos y descartados por motivo (encabezado mal formado,
+secuencia vacía o caracteres fuera de ACGTN), y en la ejecución sobre el
+archivo completo los 239\,946 registros resultaron válidos. Se decidió
+corregir en lugar de descartar porque cada problema afectaba a la forma
+de los datos y no a su contenido: eliminar las secuencias con N, por
+ejemplo, habría hecho perder casi una cuarta parte de la base. Además,
+45 entradas del campo especie corresponden a taxones superiores (por
+ejemplo, Homininae o Mammalia); se conservaron y se analizan en los
+resultados como una limitación del modelo.
