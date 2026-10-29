@@ -1,0 +1,20 @@
+\section{Conclusiones}
+Se diseñó e implementó una base documental en MongoDB que integra
+239\,946 secuencias de TEs, 2\,790 especies y 1\,439\,676 documentos de
+\textit{k}-mers ($k=1$ a $6$). La base permite generar bibliotecas por
+especie o reino (por ejemplo, 19\,797 secuencias para Fungi), relacionar
+secuencias con su taxonomía y recuperar el perfil de \textit{k}-mers de
+cualquier secuencia mediante una consulta indexada. Las consultas
+mostraron una base fuertemente desbalanceada (LTR, LINE y TIR concentran
+el 93,4\,\% de las secuencias), con composiciones de órdenes distintas
+entre reinos y longitudes que dependen de los filtros de PanTEon. El
+control de calidad mostró que el 22,85\,\% de las secuencias contiene
+caracteres ambiguos, pero solo el 0,223\,\% de las bases, por lo que
+descartar ventanas, en lugar de secuencias, conserva casi toda la
+información. Los perfiles de dinucleótidos distinguen órdenes de TE:
+SINE es el más singular, y HELITRON, MITE y TIR los más parecidos entre
+sí. Como trabajo futuro, conviene comparar experimentalmente
+estrategias de almacenamiento de los \textit{k}-mers (tiempo de carga,
+espacio y tiempo de consulta), incluir medidas de dispersión por orden,
+usar perfiles con $k>2$, y emplear los \textit{k}-mers almacenados para
+entrenar y evaluar clasificadores.
