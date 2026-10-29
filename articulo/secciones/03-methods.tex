@@ -1,3 +1,6 @@
+% ---------------------------------------------------------------------
+% 1. MODELO DE DATOS 
+% ---------------------------------------------------------------------
 \subsection*{Modelo de datos}
 
 Los datos de partida son dos archivos. El FASTA contiene las secuencias
@@ -149,218 +152,9 @@ algunas consultas: para contar TEs por especie se agrupa primero
 desventaja es que otras consultas necesitan un \texttt{\$lookup} para
 juntar las colecciones.
 
-
-\subsection*{Calidad del archivo FASTA}
-
-Antes de diseñar el \textit{pipeline} se exploró el archivo
-\texttt{PanTEon\_Database\_v1.6.1.fasta} (947\,MB)~\cite{panteon2026zenodo}
-con herramientas de línea de comandos que lo recorren línea por línea,
-sin cargarlo en memoria. El archivo contiene 239\,946 secuencias de
-2\,790 especies. Su estructura resultó consistente: todos los
-encabezados siguen el patrón
-\begin{center}\texttt{>ID\#CLASE/ORDEN/SUPERFAMILIA @Especie}\end{center}
-\noindent todas las clasificaciones
-tienen tres niveles, no hay identificadores repetidos, no hay secuencias
-vacías (la más corta tiene 81\,pb) y el archivo usa saltos de línea Unix.
-Aun así, se encontraron seis problemas, resumidos en la
-Tabla~\ref{tab:calidad_fasta}.
-
-\begin{table}[htbp]
-\centering
-\caption{Problemas de calidad del archivo FASTA y regla aplicada en el
-\textit{pipeline}.}
-\label{tab:calidad_fasta}
-\small
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{p{3.7cm}p{2.6cm}p{4.9cm}}
-\hline
-\textbf{Problema} & \textbf{Alcance} & \textbf{Solución} \\
-\hline
-Secuencias en minúsculas & 208\,354 secuencias (86,8\,\%) &
-Conversión a mayúsculas al leer, antes de calcular GC, N y
-\textit{k}-mers. \\
-Superfamilia escrita de dos formas (\texttt{SINE/TRNA} y
-\texttt{SINE/tRNA}) & 56 secuencias &
-Clasificación en mayúsculas; las superfamilias pasan de 66 a 65. \\
-Nombres de especie con punto en las abreviaturas (\texttt{subsp.},
-\texttt{sp.}), que en el CSV aparecen sin punto & 4 especies, 533
-secuencias & Normalización común para FASTA y CSV (eliminar el punto,
-espacios sobrantes y espacios múltiples). Con ella cruzan las 2\,790
-especies. \\
-Bases indeterminadas (N) & 54\,837 secuencias (22,9\,\%); 2\,147\,161 N
-& Se conservan; se calcula \texttt{porcentaje\_n} y el \%GC se calcula
-sobre A, C, G y T. No hay otros códigos IUPAC: el alfabeto válido es
-ACGTN. \\
-Identificadores que no siguen el formato \texttt{PDB\#\#\#\#\#\#\#\#}
-& 31\,600 secuencias (13,2\,\%), de las especies de Dfam &
-El campo \texttt{pdb\_id} guarda el identificador original sin asumir
-un formato; el índice único se mantiene porque no hay repetidos. \\
-Superfamilia igual al orden (\texttt{LINE/LINE}, \texttt{TIR/TIR}, etc.)
-& 11 superfamilias, 21\,544 secuencias &
-Se conservan tal cual y se documentan como superfamilia no determinada.
-\\
-\hline
-\end{tabular}
-\end{table}
-
-Ningún registro se descartó: el \textit{pipeline} cuenta los registros
-leídos, válidos y descartados por motivo (encabezado mal formado,
-secuencia vacía o caracteres fuera de ACGTN), y en la ejecución sobre el
-archivo completo los 239\,946 registros resultaron válidos. Se decidió
-corregir en lugar de descartar porque cada problema afectaba a la forma
-de los datos y no a su contenido: eliminar las secuencias con N, por
-ejemplo, habría hecho perder casi una cuarta parte de la base. Además,
-45 entradas del campo especie corresponden a taxones superiores (por
-ejemplo, Homininae o Mammalia); se conservaron y se analizan en los
-resultados como una limitación del modelo.
-
-\subsection*{Calidad del CSV y del cruce con el FASTA}
-
-El CSV también necesitó limpieza antes de cargarse
-(Tabla~\ref{tab:calidad_csv}). Se leyeron nueve columnas (taxonomía,
-especie, fuentes y notas) y sus nombres se pasaron a español para que
-coincidieran con los campos de la base.
-
-\begin{table}[htbp]
-\centering
-\caption{Problemas de calidad del CSV y del cruce con el FASTA, y regla
-aplicada en el \textit{pipeline}.}
-\label{tab:calidad_csv}
-\small
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{p{4.6cm}p{6.6cm}}
-\hline
-\textbf{Problema} & \textbf{Solución} \\
-\hline
-Valores faltantes escritos de varias formas (\texttt{NA}, \texttt{N/A},
-celda vacía y \texttt{-}) &
-Se leen los cuatro como nulos. En MongoDB se guardan como \texttt{null}
-y no como NaN. \\
-Espacios al principio o al final y espacios repetidos en las columnas de
-texto &
-Se eliminan en todas las columnas de texto antes de comparar. \\
-Filas sin nombre de especie &
-Se eliminan, porque no se pueden enlazar con ninguna secuencia. \\
-Nombre de especie escrito distinto en el CSV y en el FASTA
-(Tabla~\ref{tab:calidad_fasta}) &
-Se compara con una llave normalizada. Si el nombre del CSV no es
-idéntico al del FASTA, se usa el del FASTA. \\
-Encabezados del FASTA sin especie (sin \texttt{@} o con el nombre
-vacío) &
-Se guardan en una lista aparte y se reportan; no se borran en silencio.
-En la carga no quedó ninguna secuencia sin especie. \\
-\hline
-\end{tabular}
-\end{table}
-
-Para unir los dos archivos se normalizó primero el nombre de cada
-especie: se pasó a minúsculas, se quitaron los espacios sobrantes y se
-eliminó el punto de las abreviaturas (\texttt{subsp.}, \texttt{sp.},
-\texttt{var.} y \texttt{f.}). El resultado se usó como llave del cruce.
-Con la llave se separaron tres grupos: las especies que están en los dos
-archivos, las que están solo en el FASTA y las que están solo en el CSV.
-Cuando el nombre del CSV era distinto se dejó el del FASTA, de modo que
-el nombre guardado en \texttt{especies} es idéntico al de los
-encabezados. Antes de reemplazar se comprueba que cada llave tenga una
-sola escritura en el FASTA; si no se cumple, el programa se detiene. Con
-este procedimiento cruzaron las 2\,790 especies.
-
-\subsection*{Calidad del conteo de \textit{k}-mers}
-
-Casi una cuarta parte de las secuencias tiene N. Para contar
-\textit{k}-mers ($k$ de 1 a 6) se descartó toda ventana con algún
-carácter distinto de A, C, G o T, en lugar de inventar la base o quitar
-la secuencia completa. Cada documento de \texttt{kmers} guarda
-\texttt{total\_ventanas}, y las frecuencias se calculan dividiendo entre
-ese número y no entre la longitud, de modo que siguen sumando 1 aunque
-se hayan descartado ventanas.
-
-Para medir la pérdida se comparó, con $k=1$, \texttt{total\_ventanas}
-contra la longitud de cada secuencia. Se encontraron 54\,837 secuencias
-(22,85\,\%) con menos ventanas que su longitud, y en total se
-descartaron 2\,147\,161 caracteres, el 0,222\,\% de todas las bases.
-Todas las secuencias afectadas tienen \texttt{porcentaje\_n} mayor que
-cero, lo que coincide con la revisión del FASTA: lo que se descarta son
-las N. La cuenta es para $k=1$; con $k$ mayores cada N invalida todas
-las ventanas que la contienen, así que la pérdida real crece con $k$.
-
-El conteo se hace en paralelo y tarda, por lo que la carga se diseñó
-para poder repetirse sin duplicar datos: el índice único
-(\texttt{secuencia\_id}, $k$) rechaza los documentos repetidos, los
-errores por duplicado se ignoran y cualquier otro error se reporta, y al
-volver a correr se omiten las secuencias que ya tienen $k=6$. Como
-control final se compara el número de documentos de \texttt{kmers} con
-seis veces el de \texttt{secuencias}.
-
-
-\subsection*{Calidad del archivo FASTA}
-
-Antes de diseñar el \textit{pipeline} se exploró el archivo
-\texttt{PanTEon\_Database\_v1.6.1.fasta} (947\,MB)~\cite{panteon2026zenodo}
-con herramientas de línea de comandos que lo recorren línea por línea,
-sin cargarlo en memoria. El archivo contiene 239\,946 secuencias de
-2\,790 especies. Su estructura resultó consistente: todos los
-encabezados siguen el patrón
-\begin{center}\texttt{>ID\#CLASE/ORDEN/SUPERFAMILIA @Especie}\end{center}
-\noindent todas las clasificaciones
-tienen tres niveles, no hay identificadores repetidos, no hay secuencias
-vacías (la más corta tiene 81\,pb) y el archivo usa saltos de línea Unix.
-Aun así, se encontraron seis problemas, resumidos en la
-Tabla~\ref{tab:calidad_fasta}.
-
-\begin{table}[htbp]
-\centering
-\caption{Problemas de calidad del archivo FASTA y regla aplicada en el
-\textit{pipeline}.}
-\label{tab:calidad_fasta}
-\small
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{p{3.7cm}p{2.6cm}p{4.9cm}}
-\hline
-\textbf{Problema} & \textbf{Alcance} & \textbf{Solución} \\
-\hline
-Secuencias en minúsculas & 208\,354 secuencias (86,8\,\%) &
-Conversión a mayúsculas al leer, antes de calcular GC, N y
-\textit{k}-mers. \\
-Superfamilia escrita de dos formas (\texttt{SINE/TRNA} y
-\texttt{SINE/tRNA}) & 56 secuencias &
-Clasificación en mayúsculas; las superfamilias pasan de 66 a 65. \\
-Nombres de especie con punto en las abreviaturas (\texttt{subsp.},
-\texttt{sp.}), que en el CSV aparecen sin punto & 4 especies, 533
-secuencias & Normalización común para FASTA y CSV (eliminar el punto,
-espacios sobrantes y espacios múltiples). Con ella cruzan las 2\,790
-especies. \\
-Bases indeterminadas (N) & 54\,837 secuencias (22,9\,\%); 2\,147\,161 N
-& Se conservan; se calcula \texttt{porcentaje\_n} y el \%GC se calcula
-sobre A, C, G y T. No hay otros códigos IUPAC: el alfabeto válido es
-ACGTN. \\
-Identificadores que no siguen el formato \texttt{PDB\#\#\#\#\#\#\#\#}
-& 31\,600 secuencias (13,2\,\%), de las especies de Dfam &
-El campo \texttt{pdb\_id} guarda el identificador original sin asumir
-un formato; el índice único se mantiene porque no hay repetidos. \\
-Superfamilia igual al orden (\texttt{LINE/LINE}, \texttt{TIR/TIR}, etc.)
-& 11 superfamilias, 21\,544 secuencias &
-Se conservan tal cual y se documentan como superfamilia no determinada.
-\\
-\hline
-\end{tabular}
-\end{table}
-
-Ningún registro se descartó: el \textit{pipeline} cuenta los registros
-leídos, válidos y descartados por motivo (encabezado mal formado,
-secuencia vacía o caracteres fuera de ACGTN), y en la ejecución sobre el
-archivo completo los 239\,946 registros resultaron válidos. Se decidió
-corregir en lugar de descartar porque cada problema afectaba a la forma
-de los datos y no a su contenido: eliminar las secuencias con N, por
-ejemplo, habría hecho perder casi una cuarta parte de la base. Además,
-45 entradas del campo especie corresponden a taxones superiores (por
-ejemplo, Homininae o Mammalia); se conservaron y se analizan en los
-resultados como una limitación del modelo.
-
-% =====================================================================
-% MÉTODOS – Decisiones de diseño (pipeline del CSV y modelo de datos)
-% =====================================================================
-
+% ---------------------------------------------------------------------
+% 2. DECISIONES DE DISEÑO (B)
+% ---------------------------------------------------------------------
 \subsection*{Decisiones de diseño}
 
 \paragraph{Entidades y colecciones.}
@@ -475,20 +269,251 @@ resultado. Otra opción era insertar solo lo nuevo, pero con 2\,790 filas es
 mucho más simple borrar y volver a cargar todo, y eso evita que queden
 documentos viejos si el CSV cambia.
 
-\paragraph{Índices.}
-En la colección de especies se usa un índice único sobre el nombre de la
-especie y otro sobre la fuente. El primero impide que haya dos especies
-iguales y agiliza las búsquedas por nombre que hacen varias consultas, y el
-segundo sirve para la comparación por origen de los datos, donde se agrupa
-por Dfam y RM2+MCH. El índice de \texttt{\_id} que MongoDB crea solo es el
-que usa el \texttt{\$lookup} entre secuencias y especies. No creamos índices
-sobre reino, filo o familia porque la colección tiene apenas 2\,790
-documentos y recorrerla completa es casi instantáneo, así que un índice
-extra solo ocuparía espacio sin que se notara la mejora.
+% ---------------------------------------------------------------------
+% 3. CALIDAD DEL ARCHIVO FASTA (A)
+% ---------------------------------------------------------------------
+\subsection*{Calidad del archivo FASTA}
 
-\paragraph{Validación de esquema.}
-Para la colección de especies no se utilizó una validación de esquema
-(\texttt{\$jsonSchema}), esto principalmente por simplicidad: el
-\textit{pipeline} ya hace validaciones que garantizan lo mismo que
-garantizaría el esquema, así que no vimos necesaria esa capa extra de
-protección y decidimos priorizar un código simple y legible.
+Antes de diseñar el \textit{pipeline} se exploró el archivo
+\texttt{PanTEon\_Database\_v1.6.1.fasta} (947\,MB)~\cite{panteon2026zenodo}
+con herramientas de línea de comandos que lo recorren línea por línea,
+sin cargarlo en memoria. El archivo contiene 239\,946 secuencias de
+2\,790 especies. Su estructura resultó consistente: todos los
+encabezados siguen el patrón
+\begin{center}\texttt{>ID\#CLASE/ORDEN/SUPERFAMILIA @Especie}\end{center}
+\noindent todas las clasificaciones
+tienen tres niveles, no hay identificadores repetidos, no hay secuencias
+vacías (la más corta tiene 81\,pb) y el archivo usa saltos de línea Unix.
+Aun así, se encontraron seis problemas, resumidos en la
+Tabla~\ref{tab:calidad_fasta}.
+
+\begin{table}[htbp]
+\centering
+\caption{Problemas de calidad del archivo FASTA y regla aplicada en el
+\textit{pipeline}.}
+\label{tab:calidad_fasta}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{p{3.7cm}p{2.6cm}p{4.9cm}}
+\hline
+\textbf{Problema} & \textbf{Alcance} & \textbf{Solución} \\
+\hline
+Secuencias en minúsculas & 208\,354 secuencias (86,8\,\%) &
+Conversión a mayúsculas al leer, antes de calcular GC, N y
+\textit{k}-mers. \\
+Superfamilia escrita de dos formas (\texttt{SINE/TRNA} y
+\texttt{SINE/tRNA}) & 56 secuencias &
+Clasificación en mayúsculas; las superfamilias pasan de 66 a 65. \\
+Nombres de especie con punto en las abreviaturas (\texttt{subsp.},
+\texttt{sp.}), que en el CSV aparecen sin punto & 4 especies, 533
+secuencias & Normalización común para FASTA y CSV (eliminar el punto,
+espacios sobrantes y espacios múltiples). Con ella cruzan las 2\,790
+especies. \\
+Bases indeterminadas (N) & 54\,837 secuencias (22,9\,\%); 2\,147\,161 N
+& Se conservan; se calcula \texttt{porcentaje\_n} y el \%GC se calcula
+sobre A, C, G y T. No hay otros códigos IUPAC: el alfabeto válido es
+ACGTN. \\
+Identificadores que no siguen el formato \texttt{PDB\#\#\#\#\#\#\#\#}
+& 31\,600 secuencias (13,2\,\%), de las especies de Dfam &
+El campo \texttt{pdb\_id} guarda el identificador original sin asumir
+un formato; el índice único se mantiene porque no hay repetidos. \\
+Superfamilia igual al orden (\texttt{LINE/LINE}, \texttt{TIR/TIR}, etc.)
+& 11 superfamilias, 21\,544 secuencias &
+Se conservan tal cual y se documentan como superfamilia no determinada.
+\\
+\hline
+\end{tabular}
+\end{table}
+
+Ningún registro se descartó: el \textit{pipeline} cuenta los registros
+leídos, válidos y descartados por motivo (encabezado mal formado,
+secuencia vacía o caracteres fuera de ACGTN), y en la ejecución sobre el
+archivo completo los 239\,946 registros resultaron válidos. Se decidió
+corregir en lugar de descartar porque cada problema afectaba a la forma
+de los datos y no a su contenido: eliminar las secuencias con N, por
+ejemplo, habría hecho perder casi una cuarta parte de la base. Además,
+45 entradas del campo especie corresponden a taxones superiores (por
+ejemplo, Homininae o Mammalia); se conservaron y se analizan en los
+resultados como una limitación del modelo.
+
+% ---------------------------------------------------------------------
+% 4. CALIDAD DEL CSV Y DEL CRUCE (B)
+% ---------------------------------------------------------------------
+\subsection*{Calidad del CSV y del cruce con el FASTA}
+
+El CSV también necesitó limpieza antes de cargarse
+(Tabla~\ref{tab:calidad_csv}). Se leyeron nueve columnas (taxonomía,
+especie, fuentes y notas) y sus nombres se pasaron a español para que
+coincidieran con los campos de la base.
+
+\begin{table}[htbp]
+\centering
+\caption{Problemas de calidad del CSV y del cruce con el FASTA, y regla
+aplicada en el \textit{pipeline}.}
+\label{tab:calidad_csv}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{p{4.6cm}p{6.6cm}}
+\hline
+\textbf{Problema} & \textbf{Solución} \\
+\hline
+Valores faltantes escritos de varias formas (\texttt{NA}, \texttt{N/A},
+celda vacía y \texttt{-}) &
+Se leen los cuatro como nulos. En MongoDB se guardan como \texttt{null}
+y no como NaN. \\
+Espacios al principio o al final y espacios repetidos en las columnas de
+texto &
+Se eliminan en todas las columnas de texto antes de comparar. \\
+Filas sin nombre de especie &
+Se eliminan, porque no se pueden enlazar con ninguna secuencia. \\
+Nombre de especie escrito distinto en el CSV y en el FASTA
+(Tabla~\ref{tab:calidad_fasta}) &
+Se compara con una llave normalizada. Si el nombre del CSV no es
+idéntico al del FASTA, se usa el del FASTA. \\
+Encabezados del FASTA sin especie (sin \texttt{@} o con el nombre
+vacío) &
+Se guardan en una lista aparte y se reportan; no se borran en silencio.
+En la carga no quedó ninguna secuencia sin especie. \\
+\hline
+\end{tabular}
+\end{table}
+
+Para unir los dos archivos se normalizó primero el nombre de cada
+especie: se pasó a minúsculas, se quitaron los espacios sobrantes y se
+eliminó el punto de las abreviaturas (\texttt{subsp.}, \texttt{sp.},
+\texttt{var.} y \texttt{f.}). El resultado se usó como llave del cruce.
+Con la llave se separaron tres grupos: las especies que están en los dos
+archivos, las que están solo en el FASTA y las que están solo en el CSV.
+Cuando el nombre del CSV era distinto se dejó el del FASTA, de modo que
+el nombre guardado en \texttt{especies} es idéntico al de los
+encabezados. Antes de reemplazar se comprueba que cada llave tenga una
+sola escritura en el FASTA; si no se cumple, el programa se detiene. Con
+este procedimiento cruzaron las 2\,790 especies.
+
+% ---------------------------------------------------------------------
+% 5. CALIDAD DEL CONTEO DE K-MERS (C)
+% ---------------------------------------------------------------------
+\subsection*{Calidad del conteo de \textit{k}-mers}
+
+Casi una cuarta parte de las secuencias tiene N. Para contar
+\textit{k}-mers ($k$ de 1 a 6) se descartó toda ventana con algún
+carácter distinto de A, C, G o T, en lugar de inventar la base o quitar
+la secuencia completa. Cada documento de \texttt{kmers} guarda
+\texttt{total\_ventanas}, y las frecuencias se calculan dividiendo entre
+ese número y no entre la longitud, de modo que siguen sumando 1 aunque
+se hayan descartado ventanas.
+
+Para medir la pérdida se comparó, con $k=1$, \texttt{total\_ventanas}
+contra la longitud de cada secuencia. Se encontraron 54\,837 secuencias
+(22,85\,\%) con menos ventanas que su longitud, y en total se
+descartaron 2\,147\,161 caracteres, el 0,222\,\% de todas las bases.
+Todas las secuencias afectadas tienen \texttt{porcentaje\_n} mayor que
+cero, lo que coincide con la revisión del FASTA: lo que se descarta son
+las N. La cuenta es para $k=1$; con $k$ mayores cada N invalida todas
+las ventanas que la contienen, así que la pérdida real crece con $k$.
+
+El conteo se hace en paralelo y tarda, por lo que la carga se diseñó
+para poder repetirse sin duplicar datos: el índice único
+(\texttt{secuencia\_id}, $k$) rechaza los documentos repetidos, los
+errores por duplicado se ignoran y cualquier otro error se reporta, y al
+volver a correr se omiten las secuencias que ya tienen $k=6$. Como
+control final se compara el número de documentos de \texttt{kmers} con
+seis veces el de \texttt{secuencias}.
+
+% ---------------------------------------------------------------------
+% 6. ÍNDICES (A + B)
+% ---------------------------------------------------------------------
+\subsection*{Índices}
+
+Cada índice se creó para una consulta concreta (Tabla~\ref{tab:indices}).
+Además del índice por defecto sobre \texttt{\_id}, que es el que usa el
+\texttt{\$lookup} entre secuencias y especies, se crearon seis índices.
+Tres de ellos son únicos porque, además de acelerar la búsqueda,
+garantizan la integridad: no puede haber dos especies con el mismo
+nombre, dos secuencias con el mismo identificador ni dos perfiles del
+mismo $k$ para una misma secuencia, lo que hace que una carga repetida no
+duplique datos.
+
+\begin{table}[htbp]
+\centering
+\caption{Índices creados y consulta que justifica cada uno.}
+\label{tab:indices}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{p{1.9cm}p{3.1cm}p{1.0cm}p{5.0cm}}
+\hline
+\textbf{Colección} & \textbf{Campos} & \textbf{Único} & \textbf{Consulta que lo justifica} \\
+\hline
+\texttt{especies} & \texttt{especie} & Sí &
+Cruce FASTA--CSV y bibliotecas por especie (Q9, Q10). \\
+\texttt{especies} & \texttt{fuente} & No &
+Comparación por origen de los datos, Dfam frente a RM2+MCH (Q13). \\
+\texttt{secuencias} & \texttt{pdb\_id} & Sí &
+Búsqueda de una secuencia por su nombre (Q8). \\
+\texttt{secuencias} & \texttt{especie\_id} & No &
+\texttt{\$lookup} entre secuencias y especies (Q2--Q4, Q12) y
+secuencias de una especie (Q9--Q11). \\
+\texttt{kmers} & \texttt{secuencia\_id}, \texttt{k} & Sí &
+Perfil de una secuencia para un $k$ dado (Q15). \\
+\texttt{kmers} & \texttt{te\_orden}, \texttt{k} & No &
+Promedio de 2-mers por orden (Figura 4). \\
+\hline
+\end{tabular}
+\end{table}
+
+No se crearon índices sobre \texttt{reino}, \texttt{filo} ni
+\texttt{familia} porque la colección de especies tiene apenas 2\,790
+documentos y recorrerla completa es casi instantáneo, así que un índice
+extra solo ocuparía espacio sin que se notara la mejora. Tampoco se
+indexaron \texttt{te\_clase}, \texttt{te\_orden} ni
+\texttt{te\_superfamilia} en \texttt{secuencias}. Las consultas que usan
+estos campos (Q1, Q5) agrupan toda la colección, y un índice no evita
+recorrerla; además, la distribución es tan desbalanceada que un filtro
+por LTR devuelve la mitad de los documentos (Q1), de modo que el índice
+sería poco selectivo y solo agregaría costo a cada inserción.
+
+% ---------------------------------------------------------------------
+% 7. VALIDACIÓN DE ESQUEMA (A)
+% ---------------------------------------------------------------------
+\subsection*{Validación de esquema}
+
+Siguiendo la decisión del equipo, se definió una validación
+\texttt{\$jsonSchema} para las tres colecciones. El \textit{pipeline} ya
+limpia y valida los datos antes de insertarlos, pero esa protección
+solo existe mientras se use el \textit{pipeline}; el esquema, en cambio,
+queda en la base y rechaza cualquier documento mal formado
+(\texttt{validationAction = "error"}), venga de donde venga. Los campos
+obligatorios y las restricciones principales son:
+
+{\sloppy
+\begin{itemize}
+  \item \textbf{\texttt{especies}}: obligatorios \texttt{especie} (texto
+  no vacío), \texttt{reino} (solo Animalia, Plantae o Fungi) y
+  \texttt{fuente}. Los niveles taxonómicos (\texttt{filo},
+  \texttt{tax\_clase}, \texttt{tax\_orden}, \texttt{familia}),
+  \texttt{fuente\_2} y \texttt{notas} aceptan texto o \texttt{null},
+  porque el CSV tiene faltantes legítimos en esos campos.
+  \item \textbf{\texttt{secuencias}}: los nueve campos son obligatorios.
+  \texttt{te\_clase} solo admite CLASSI o CLASSII; \texttt{secuencia}
+  debe cumplir el patrón \texttt{\^{}[ACGTN]+\$}, lo que garantiza que se
+  guardó en mayúsculas y con el alfabeto válido; \texttt{especie\_id}
+  debe ser un \texttt{ObjectId}; \texttt{longitud} es un entero positivo,
+  y \texttt{porcentaje\_gc} y \texttt{porcentaje\_n} están entre 0 y 100
+  (\texttt{porcentaje\_gc} admite \texttt{null} para una secuencia
+  formada solo por N).
+  \item \textbf{\texttt{kmers}}: obligatorios \texttt{secuencia\_id}
+  (\texttt{ObjectId}), \texttt{te\_orden}, \texttt{k} (entero entre 1 y
+  6), \texttt{total\_ventanas} (entero no negativo) y \texttt{conteos}
+  (objeto).
+\end{itemize}
+\par}
+
+La validación se aplicó con \texttt{validationLevel = "moderate"}, que
+no revisa los documentos ya cargados; por eso, después de aplicarla se
+contaron los documentos que no cumplían el esquema con una consulta
+\texttt{\$nor}/\texttt{\$jsonSchema} sobre cada colección. Ninguno de
+los 2\,790 documentos de \texttt{especies} ni de los 239\,946 de
+\texttt{secuencias} incumplió su esquema, lo que confirma que las reglas
+de limpieza del \textit{pipeline} se aplicaron a toda la base. La
+colección \texttt{kmers} se creó con la validación activa antes de la
+carga, de modo que cada documento se validó al insertarse.
