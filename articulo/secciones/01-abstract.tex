@@ -1,0 +1,44 @@
+% =====================================================================
+% sections/01-abstract.tex – BORRADOR (estructura BMC: Antecedentes,
+% Resultados, Conclusiones; revisar el límite de palabras en JOURNAL.md)
+% Los [ ] se llenan con los resultados del experimento de k-mers.
+% =====================================================================
+
+\textbf{Antecedentes.} Los elementos transponibles (TEs) se cuentan
+entre los componentes más abundantes de los genomas eucariotas, y su
+estudio combina datos de naturaleza muy distinta: secuencias, una
+clasificación en tres niveles, la taxonomía de cada especie y perfiles
+de \textit{k}-mers de hasta 5\,460 valores por secuencia. Recursos como
+PanTEon distribuyen esta información en archivos planos unidos solo por
+el nombre de la especie, sin consultas ni relaciones explícitas. El
+objetivo de este trabajo fue diseñar, implementar y evaluar una base de
+datos documental en MongoDB que integre esas fuentes.
+
+\textbf{Resultados.} Un \textit{pipeline} reproducible en Python leyó
+y validó 239\,946 secuencias de 2\,790 especies de Animalia, Plantae y
+Fungi, corrigió seis problemas de calidad del FASTA (entre ellos
+secuencias en minúsculas, nombres de especie que no cruzaban con el CSV
+y 22,9\,\% de secuencias con bases indeterminadas) sin descartar
+ningún registro, y calculó los perfiles de \textit{k}-mers de $k=1$ a
+6 (1\,439\,676 documentos). El modelo usa tres colecciones relacionadas
+por referencias, seis índices justificados por consultas concretas y
+validación \texttt{\$jsonSchema} en todas las colecciones. Las
+consultas mostraron una base dominada por retrotransposones LTR
+(49,7\,\%), con perfiles distintos por reino (LTR en plantas, LINE en
+animales), y revelaron que 45 entradas registradas como especie son en
+realidad taxones superiores. Al comparar dos estrategias de
+almacenamiento de los \textit{k}-mers, la colección aparte tardó
+[TIEMPO\_1]\,s en cargarse y ocupó [ESPACIO\_1]\,MB, frente a
+[TIEMPO\_2]\,s y [ESPACIO\_2]\,MB de la estrategia embebida.
+
+\textbf{Conclusiones.} Un modelo documental con referencias permite
+integrar secuencias, taxonomía y perfiles de \textit{k}-mers sin
+repetir información y responder las consultas con agregaciones. La
+elección entre guardar los \textit{k}-mers aparte o embebidos depende
+del tipo de uso: [CONCLUSIÓN DEL EXPERIMENTO, p. ej. la colección aparte
+conviene para consultar un $k$ concreto y la embebida para recuperar el
+perfil completo de una secuencia].
+
+\medskip
+\noindent\textbf{Palabras clave:} elementos transponibles, MongoDB,
+bases de datos documentales, \textit{k}-mers, bioinformática.
