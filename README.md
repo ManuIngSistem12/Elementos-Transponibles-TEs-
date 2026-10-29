@@ -176,5 +176,5 @@ Si usas este trabajo, cita las fuentes de los datos:
 ---
 
 ## Equipo
-
+Milerick Henao Román - Manuel Noreña - Oswaldo Daza
 Proyecto de Bases de Datos II – Universidad Autónoma de Manizales. Docente: Simón Gaviria Orrego.
