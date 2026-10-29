@@ -66,3 +66,139 @@ ejemplo, habría hecho perder casi una cuarta parte de la base. Además,
 45 entradas del campo especie corresponden a taxones superiores (por
 ejemplo, Homininae o Mammalia); se conservaron y se analizan en los
 resultados como una limitación del modelo.
+
+% =====================================================================
+% MÉTODOS – Decisiones de diseño (pipeline del CSV y modelo de datos)
+% =====================================================================
+
+\subsection*{Decisiones de diseño}
+
+\paragraph{Entidades y colecciones.}
+Identificamos tres entidades, la especie, la secuencia y el perfil de
+\textit{k}-mers, y cada una quedó en su propia colección. La colección de
+especies tiene un documento por cada fila del CSV, con su taxonomía y el
+origen de su biblioteca de TEs, mientras que las secuencias y los
+\textit{k}-mers se guardan aparte porque son muchísimos más y tienen un
+tamaño muy distinto. Decidimos separarlas así porque una especie tiene
+muchas secuencias (hasta 1\,627 en una sola especie) y mezclarlas en un solo
+documento habría hecho que cada consulta tuviera que cargar mucha
+información que no necesita.
+
+\paragraph{Información embebida y referenciada.}
+La taxonomía de cada especie se guarda una sola vez en la colección de
+especies y las secuencias solo guardan el identificador de su especie
+(\texttt{especie\_id}), de modo que se llega a la taxonomía haciendo un
+\texttt{\$lookup}. Esto porque embeber la taxonomía en cada secuencia habría
+repetido los mismos datos cerca de 240\,000 veces, una por cada secuencia, y
+cualquier corrección de un nombre habría que hacerla en todos los
+documentos de esa especie en vez de uno. Otra opción era embeber toda la
+taxonomía para evitar el \texttt{\$lookup}, pero la ganancia en las
+consultas por reino no nos pareció suficiente para justificar esa
+repetición. El costo de la referencia es que las consultas que agrupan por
+reino o por filo necesitan unir las dos colecciones, y los identificadores
+que genera MongoDB cambian cada vez que se recarga la colección de
+especies, por lo que las secuencias también hay que volver a cargarlas.
+
+\paragraph{Jerarquías de clasificación y de taxonomía.}
+No se representa la jerarquía en los datos porque no creímos que fuera algo
+que fuera importante almacenar, solo se pide que se pueda responder a
+consultas y para ello no es necesaria una estructura jerárquica, así que se
+dejó implícita. Los campos sin embargo están ordenados siguiendo esa
+jerarquía, aunque esto no tenga relevancia al final más allá de un mejor
+orden visual. Consideramos usar \textit{arrays} de modo que con el índice de
+cada elemento se diera esta estructura, pero a la hora de hacer las
+consultas es mucho más sencillo agrupar utilizando campos ya que no habría
+que acceder a la posición.
+
+\paragraph{Columnas del CSV y nombres de los campos.}
+Solo se conservan las nueve columnas necesarias y las demás se descartan al
+leer el archivo, ya que no aportan nada a las consultas ni al cruce. Los
+nombres se pasaron al español y a \texttt{Class} y \texttt{Order} se les
+puso el prefijo \texttt{tax\_} (\texttt{tax\_clase} y \texttt{tax\_orden})
+porque la clase y el orden de la especie no tienen nada que ver con la clase
+y el orden del elemento transponible que vienen en el FASTA, y dejarlos con
+el mismo nombre habría sido una fuente de errores al hacer las consultas.
+
+\paragraph{Limpieza de textos y comparación de nombres.}
+A todas las columnas de texto se les quitan los espacios sobrantes al
+inicio, al final y entre palabras, y los valores como \texttt{NA},
+\texttt{N/A} o ``\texttt{-}'' se convierten en vacíos. Para comparar nombres
+entre el CSV y el FASTA se usa una versión normalizada que pasa todo a
+minúsculas y quita el punto de abreviaturas como \texttt{sp.} y
+\texttt{subsp.}, pero esa versión solo sirve para comparar y nunca se
+guarda, porque un nombre científico va con el género en mayúscula y al
+exportar las bibliotecas el encabezado tiene que quedar igual que en el
+archivo original. Otra opción era guardar el nombre normalizado, pero eso
+habría hecho que las bibliotecas generadas ya no coincidieran con el FASTA.
+Con esto el cruce funcionó para las 2\,790 especies, y solo 4 necesitaron la
+normalización (una diferencia de un punto en \texttt{subsp.} o
+\texttt{sp.}), que corresponden a 533 secuencias.
+
+\paragraph{Valores faltantes, nombres inconsistentes y registros que no
+cruzan.}
+Para tratar los datos faltantes decidimos conservar las filas que tenían
+campos vacíos excepto cuando falta el nombre de la especie, esto porque el
+nombre de la especie es el principal identificador para relacionarla con las
+secuencias del archivo FASTA y si este campo está vacío no es posible
+realizar el cruce de forma confiable, por lo que en esos casos sí
+descartamos la fila completa. Los demás atributos se conservan aunque no
+tengan ningún valor, ya que no impide identificar la especie ni procesar su
+secuencia.
+
+Para los registros que no cruzan identificamos si los nombres normalizados
+entre ambos archivos coinciden, de ser así, se le da prioridad al nombre del
+archivo FASTA y se reemplaza el nombre del CSV. Decidimos hacerlo así porque
+de igual manera habría que elegir cuál de los dos nombres debe utilizarse, y
+modificar el CSV no solo es mucho más sencillo al haber menos lugares donde
+realizar el cambio, sino que también si alguien pasara su propio archivo de
+secuencias por nuestro programa para realizar alguna consulta este se vería
+modificado y podría acarrear problemas si llegara a utilizarse en algún otro
+lugar. Otra opción era simplemente ignorar estas discrepancias y no
+contarlas en el análisis, pero un pequeño error en un nombre tiene mucho
+menos peso que la pérdida de cientos de secuencias asociadas a ese nombre,
+por lo que decidimos darle más importancia a esa información.
+
+\paragraph{Duplicados.}
+Comprobamos que el número de filas del CSV coincide con el número de
+especies distintas después de normalizar (2\,790 en ambos casos), por lo que
+no hay especies repetidas y no fue necesario fusionar filas. Decidimos no
+escribir una lógica de fusión porque no habría tenido nada que fusionar y
+solo habría añadido código que nadie usa, pero la comprobación se mantiene
+en el reporte para que, si alguien cambia el CSV, el duplicado se note en
+vez de perderse. Dejar que se elija la primera fila de cada grupo habría
+sido más corto, pero habría descartado datos sin avisar.
+
+\paragraph{Lectura del FASTA para el cruce.}
+Se recorre el archivo línea por línea y solo se miran los encabezados, ya
+que el FASTA pesa 947\,MB y cargarlo completo en memoria no era viable ni
+necesario, porque para el cruce solo hace falta el nombre de la especie. El
+costo es que el archivo se tiene que recorrer otra vez cuando se cargan las
+secuencias, pero es pequeño comparado con el riesgo de quedarnos sin
+memoria. Además, si una especie aparece escrita de dos formas distintas en
+el FASTA el programa se detiene en vez de elegir una en silencio, porque esa
+discrepancia no se puede resolver de forma automática y confiable.
+
+\paragraph{Repetición del \textit{pipeline}.}
+Antes de insertar se vacía la colección de especies, así que el
+\textit{pipeline} se puede ejecutar varias veces y siempre deja el mismo
+resultado. Otra opción era insertar solo lo nuevo, pero con 2\,790 filas es
+mucho más simple borrar y volver a cargar todo, y eso evita que queden
+documentos viejos si el CSV cambia.
+
+\paragraph{Índices.}
+En la colección de especies se usa un índice único sobre el nombre de la
+especie y otro sobre la fuente. El primero impide que haya dos especies
+iguales y agiliza las búsquedas por nombre que hacen varias consultas, y el
+segundo sirve para la comparación por origen de los datos, donde se agrupa
+por Dfam y RM2+MCH. El índice de \texttt{\_id} que MongoDB crea solo es el
+que usa el \texttt{\$lookup} entre secuencias y especies. No creamos índices
+sobre reino, filo o familia porque la colección tiene apenas 2\,790
+documentos y recorrerla completa es casi instantáneo, así que un índice
+extra solo ocuparía espacio sin que se notara la mejora.
+
+\paragraph{Validación de esquema.}
+Para la colección de especies no se utilizó una validación de esquema
+(\texttt{\$jsonSchema}), esto principalmente por simplicidad: el
+\textit{pipeline} ya hace validaciones que garantizan lo mismo que
+garantizaría el esquema, así que no vimos necesaria esa capa extra de
+protección y decidimos priorizar un código simple y legible.
