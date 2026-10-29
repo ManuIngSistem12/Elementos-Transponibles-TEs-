@@ -1,0 +1,53 @@
+\section{Discusión}
+ 
+\paragraph{Diseño del modelo.}
+Las referencias (\texttt{especie\_id}, \texttt{secuencia\_id}) evitan
+repetir la taxonomía en 239\,946 documentos y permiten corregir un dato
+taxonómico modificando un único documento. El costo es que las consultas
+por taxonomía (Q2, Q3, Q12 y Q13) requieren un \texttt{\$lookup}, que se
+mitigó agrupando antes de unir. Copiar \texttt{te\_orden} en
+\texttt{kmers} es una desnormalización deliberada: el costo es un campo
+redundante y el beneficio es filtrar por orden y por $k$ sin unir
+colecciones, como exige el mapa de calor. Un documento por par
+(secuencia, $k$) mantiene cada documento pequeño (como máximo 4\,096
+claves) y permite consultar un solo $k$ sin leer los demás. Una
+alternativa es un único documento por secuencia con los seis $k$
+embebidos, que reduciría el número de documentos a 239\,946 pero obligaría
+a leer o proyectar todo el documento para cada consulta; en este trabajo
+no se midieron ambas alternativas.
+ 
+\paragraph{Composición y calidad de los datos.}
+La base está sesgada hacia los retrotransposones LTR y LINE, que suman
+el 78,2\,\% de las secuencias, y muchas especies tienen pocos TEs (326
+tienen uno solo). Además, las longitudes reflejan los filtros aplicados
+por PanTEon y no la longitud natural de cada orden. El 22,85\,\% de las
+secuencias contiene algún carácter ambiguo, pero solo el 0,223\,\% de las
+bases se descarta; por eso descartar ventanas y no secuencias completas
+conserva casi toda la información. Las bibliotecas Dfam y RM2+MCH tienen
+un número parecido de secuencias por especie, pero difieren 2,6 veces en
+longitud, por lo que no deben tratarse como equivalentes.
+ 
+\paragraph{Lectura biológica de los perfiles.}
+SINE es el orden más corto (mediana 254\,pb) y también el de perfil de
+dinucleótidos más singular; este trabajo no evaluó si ambas
+observaciones están relacionadas. La baja frecuencia de CG en casi todos
+los órdenes es coherente con la pérdida de dinucleótidos CpG por
+metilación y mutación, aunque este trabajo no midió esos mecanismos. Los
+resultados sugieren que los \textit{k}-mers pueden servir como firma para
+clasificar TEs, en línea con su uso en las herramientas revisadas por
+PanTEon~\cite{orozcoarias2026panteon}. La longitud sola no basta: HELITRON,
+LINE y PLE se superponen, mientras que sus perfiles de 2-mers sí los
+distinguen en parte.
+ 
+\paragraph{Limitaciones.}
+(i) El desbalance entre órdenes (58 a 119\,368 secuencias) hace desiguales
+los promedios. (ii) El promedio por orden oculta la variación entre
+especies y entre secuencias; no se calculó dispersión. (iii) Las
+distancias se calcularon solo con $k=2$. (iv) Los resultados dependen de
+los metadatos y las etiquetas de PanTEon v1.6.1, incluidas las
+superfamilias sin determinar y los identificadores de especie que
+corresponden a taxones superiores. (v) No se comparó experimentalmente el
+costo de distintas estrategias de almacenamiento de los \textit{k}-mers.
+(vi) Los resultados se obtuvieron en la base de trabajo
+\texttt{panteon\_prueba}, que contiene la carga completa de las 239\,946
+secuencias.

@@ -30,8 +30,8 @@ def main():
 
     # encabezado
     h = parsear_encabezado(">PumCon-1.11#CLASSI/SINE/tRNA @Puma concolor")
-    assert h == {"id_original": "PumCon-1.11", "te_class": "CLASSI", "te_order": "SINE",
-                 "te_superfamily": "TRNA", "especie": "Puma concolor"}
+    assert h == {"pdb_id": "PumCon-1.11", "te_clase": "CLASSI", "te_orden": "SINE",
+                 "te_superfamilia": "TRNA", "especie": "Puma concolor"}
     assert parsear_encabezado(">MAL#sin_clasificacion @Algo") is None
 
     # validación
